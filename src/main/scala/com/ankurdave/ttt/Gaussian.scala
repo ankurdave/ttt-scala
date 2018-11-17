@@ -20,4 +20,6 @@ case class Gaussian(var precisionMean: Double, var precision: Double) {
     precisionMean = b.precisionMean
     precision = b.precision
   }
+
+  override def toString(): String = "Gaussian(mu=%f, sigma=%f)".format(mu, sigma)
 }
