@@ -52,10 +52,10 @@ class Matches(data: Seq[(Date, PlayerId, PlayerId)]) {
 
 class TTT(
     matches: Matches,
-    mu: Double = 18,
-    sigma: Double = 18 / 3.0,
-    beta: Double = 18 / 6.0,
-    tau: Double = 18 / 30.0,
+    mu: Double = 15,
+    sigma: Double = 15 / 3.0,
+    beta: Double = 15 / 6.0,
+    tau: Double = 15 / 30.0,
     delta: Double = 0.01) {
 
   def run(): SkillHistory = {
