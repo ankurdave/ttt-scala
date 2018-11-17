@@ -2,42 +2,70 @@ package com.ankurdave.ttt
 
 import scala.collection.mutable
 
+import java.time.YearMonth
+
 case class PlayerId(name: String)
 
 object Date {
-  def range(start: Date, end: Date): Seq[Date] = ???
+  def range(start: Date, end: Date): Seq[Date] = {
+    val result = mutable.ArrayBuffer.empty[Date]
+    var cur = start
+    while (cur < end) {
+      result += cur
+      cur = cur.next()
+    }
+    result += end
+  }
 }
 
-case class Date(year: Int, month: Int) {
-  def prev(): Date = ???
-  def next(): Date = ???
-  def <(other: Date): Boolean = ???
+case class Date(ym: YearMonth) {
+  def prev(): Date = Date(ym.minusMonths(1))
+  def next(): Date = Date(ym.plusMonths(1))
+  def <(other: Date): Boolean = ym.isBefore(other.ym)
 }
 
-class SkillHistory(matches: Matches, skillVariables: Map[(Date, PlayerId), Gaussian])
+case class SkillHistory(matches: Matches, skillVariables: Map[(Date, PlayerId), Gaussian])
 
-class Matches {
-  def byDate(date: Date): Seq[(PlayerId, PlayerId)] = ???
+class Matches(data: Seq[(Date, PlayerId, PlayerId)]) {
 
-  def playerStartEndDates: Seq[(PlayerId, Date, Date)] = ???
+  def byDate(date: Date): Seq[(PlayerId, PlayerId)] =
+    for {
+      (d, w, l) <- data
+      if d == date
+    } yield (w, l)
 
-  def minDate: Date = ???
-  def maxDate: Date = ???
+  def playerStartEndDates: Map[PlayerId, (Date, Date)] = {
+    val dates =
+      for {
+        (d, w, l) <- data
+        p <- Seq(w, l)
+      } yield (p, d)
+    val datesByPlayer: Map[PlayerId, Seq[Date]] = dates.groupBy(_._1).mapValues(_.map(_._2))
+    datesByPlayer.mapValues(dates => (dates.minBy(_.ym), dates.maxBy(_.ym)))
+  }
+
+  val dates = data.map(_._1).toSet
+
+  val minDate: Date = dates.minBy(_.ym)
+  val maxDate: Date = dates.maxBy(_.ym)
 }
 
 class TTT(
     matches: Matches,
-    mu: Double,
-    sigma: Double,
-    beta: Double,
-    tau: Double,
-    delta: Double) {
+    mu: Double = 18,
+    sigma: Double = 18 / 3.0,
+    beta: Double = 18 / 6.0,
+    tau: Double = 18 / 30.0,
+    delta: Double = 0.01) {
 
   val tauSquared = tau * tau
 
   def run(): SkillHistory = {
+    println("Building factor graph")
     val (skillVariables, schedule) = buildFactorGraph()
+    println("Running")
     schedule.run()
+    println("Done")
     new SkillHistory(matches, skillVariables)
   }
 
@@ -46,7 +74,7 @@ class TTT(
     val skillDynamicsFactors = mutable.HashMap.empty[(Date, PlayerId), Factor]
     val skillPriorFactors = mutable.HashMap.empty[(Date, PlayerId), Factor]
 
-    for ((p, s, e) <- matches.playerStartEndDates) {
+    for ((p, (s, e)) <- matches.playerStartEndDates) {
       for (d <- Date.range(s, e)) {
         skillVariables((d, p)) = Gaussian(0, 0)
         if (d == s) {
@@ -79,6 +107,7 @@ class TTT(
       skillVariables: Map[(Date, PlayerId), Gaussian],
       skillDynamicsFactors: Map[(Date, PlayerId), Factor])
     : ScheduleSeq = {
+    println("Building schedule for " + date)
 
     val forwardDynamicsSchedule = ScheduleSeq(
       (for (((d, p), v) <- skillDynamicsFactors; if d == date)
