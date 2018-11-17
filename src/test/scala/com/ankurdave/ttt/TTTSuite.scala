@@ -12,6 +12,8 @@ class TTTSuite extends FunSuite {
       (Date(YearMonth.of(2017, 2)), PlayerId("C"), PlayerId("B")),
       (Date(YearMonth.of(2017, 3)), PlayerId("C"), PlayerId("D")),
       (Date(YearMonth.of(2017, 4)), PlayerId("C"), PlayerId("E"))))
-    println(new TTT(matches, 18).run())
+    for (elem <- new TTT(matches, 18).run().skillVariables.toSeq.sortBy(_._1._1.ym)) {
+      println(elem)
+    }
   }
 }

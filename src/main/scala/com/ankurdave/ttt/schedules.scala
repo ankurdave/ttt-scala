@@ -18,10 +18,11 @@ case class ScheduleLoop(child: Schedule, delta: Double) extends Schedule {
     var i = 0
     var curDelta = child.run()
     while (curDelta > delta) {
-      println("ScheduleLoop iteration " + i)
+      println("ScheduleLoop iteration %d, delta=%f".format(i, curDelta))
       curDelta = child.run()
       i += 1
     }
+    println("ScheduleLoop done. %d iterations, final delta=%f".format(i, curDelta))
     curDelta
   }
 }
