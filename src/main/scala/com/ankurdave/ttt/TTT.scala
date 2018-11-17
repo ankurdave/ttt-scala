@@ -58,8 +58,6 @@ class TTT(
     tau: Double = 18 / 30.0,
     delta: Double = 0.01) {
 
-  val tauSquared = tau * tau
-
   def run(): SkillHistory = {
     println("Building factor graph")
     val (skillVariables, schedule) = buildFactorGraph()
@@ -85,7 +83,7 @@ class TTT(
           val dynamicsFactor = LikelihoodFactor(
             skillVariables((d, p)),
             skillVariables((d.prev(), p)),
-            tauSquared)
+            tau * tau)
           skillDynamicsFactors((d, p)) = dynamicsFactor
         }
       }
