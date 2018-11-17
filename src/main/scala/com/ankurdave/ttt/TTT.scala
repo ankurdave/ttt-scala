@@ -83,8 +83,8 @@ class TTT(
         } else {
           // Dynamics factor between previous skill and current skill
           val dynamicsFactor = LikelihoodFactor(
-            skillVariables((d.prev(), p)),
             skillVariables((d, p)),
+            skillVariables((d.prev(), p)),
             tauSquared)
           skillDynamicsFactors((d, p)) = dynamicsFactor
         }
