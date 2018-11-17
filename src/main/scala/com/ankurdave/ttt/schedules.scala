@@ -14,15 +14,17 @@ case class ScheduleSeq(steps: Seq[Schedule]) extends Schedule {
 }
 
 case class ScheduleLoop(child: Schedule, delta: Double) extends Schedule {
+  var profile = false
   override def run(): Double = {
     var i = 0
     var curDelta = child.run()
     while (curDelta > delta) {
-      println("ScheduleLoop iteration %d, delta=%f".format(i, curDelta))
+      if (profile) System.err.println("ScheduleLoop iteration %d, delta=%f".format(i, curDelta))
       curDelta = child.run()
       i += 1
     }
-    println("ScheduleLoop done. %d iterations, final delta=%f".format(i, curDelta))
+    if (profile) System.err.println(
+      "ScheduleLoop done. %d iterations, final delta=%f".format(i, curDelta))
     curDelta
   }
 }

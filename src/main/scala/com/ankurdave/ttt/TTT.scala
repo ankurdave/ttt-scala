@@ -59,11 +59,11 @@ class TTT(
     delta: Double = 0.01) {
 
   def run(): SkillHistory = {
-    println("Building factor graph")
+    System.err.println("Building factor graph")
     val (skillVariables, schedule) = buildFactorGraph()
-    println("Running")
+    System.err.println("Running schedule")
     schedule.run()
-    println("Done")
+    System.err.println("Done")
     new SkillHistory(matches, skillVariables)
   }
 
@@ -96,6 +96,7 @@ class TTT(
 
     val fullSchedule = ScheduleLoop(
       ScheduleSeq(priorSchedule.steps ++ mainSchedule.steps), delta)
+    fullSchedule.profile = true
 
     (skillVariables.toMap, fullSchedule)
   }
@@ -105,8 +106,6 @@ class TTT(
       skillVariables: Map[(Date, PlayerId), Gaussian],
       skillDynamicsFactors: Map[(Date, PlayerId), Factor])
     : ScheduleSeq = {
-    println("Building schedule for " + date)
-
     val forwardDynamicsSchedule = ScheduleSeq(
       (for (((d, p), v) <- skillDynamicsFactors; if d == date)
       yield ScheduleStep(v, 0)).toSeq)
