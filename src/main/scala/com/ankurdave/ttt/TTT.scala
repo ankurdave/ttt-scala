@@ -77,7 +77,7 @@ class TTT(
         skillVariables((d, p)) = Gaussian(0, 0)
         if (d == s) {
           // Prior over new players' skills
-          skillPriorFactors((d, p)) = PriorFactor(mu, sigma, skillVariables((d, p)))
+          skillPriorFactors((d, p)) = PriorFactor(mu, sigma * sigma, skillVariables((d, p)))
         } else {
           // Dynamics factor between previous skill and current skill
           val dynamicsFactor = LikelihoodFactor(
