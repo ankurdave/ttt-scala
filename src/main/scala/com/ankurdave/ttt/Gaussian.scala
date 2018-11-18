@@ -1,5 +1,13 @@
 package com.ankurdave.ttt
 
+object Gaussian {
+  def fromMS(mu: Double, sigma: Double): Gaussian =
+    Gaussian(mu / (sigma * sigma), 1.0 / (sigma * sigma))
+
+  def fromMS2(mu: Double, sigmaSquared: Double): Gaussian =
+    Gaussian(mu / sigmaSquared, 1.0 / sigmaSquared)
+}
+
 case class Gaussian(var precisionMean: Double, var precision: Double) {
   def pi: Double = precisionMean
   def tau: Double = precision

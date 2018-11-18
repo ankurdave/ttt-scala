@@ -12,7 +12,7 @@ case class PriorFactor(mu: Double, sigma2: Double, variable: Gaussian) extends F
     assert(index == 0)
     val oldMarginal = variable.copy()
 
-    val newMessage = Gaussian(mu / sigma2, 1.0 / sigma2)
+    val newMessage = Gaussian.fromMS2(mu, sigma2)
     val newMarginal = Gaussian(
       variable.precisionMean + newMessage.precisionMean - message.precisionMean,
       variable.precision + newMessage.precision - message.precision)
@@ -29,7 +29,7 @@ case class PriorFactor(mu: Double, sigma2: Double, variable: Gaussian) extends F
   }
 }
 
-/** N(var0;var1,betaSquared) */
+/** N(variable1;variable2,betaSquared) */
 case class LikelihoodFactor(variable1: Gaussian, variable2: Gaussian, betaSquared: Double)
   extends Factor {
 
@@ -67,7 +67,7 @@ case class LikelihoodFactor(variable1: Gaussian, variable2: Gaussian, betaSquare
 
 /** variable0 = a1 * variable1 + a2 * variable2 */
 case class WeightedSumFactor(
-    variable1: Gaussian, variable2: Gaussian, variable3: Gaussian,
+    variable0: Gaussian, variable1: Gaussian, variable2: Gaussian,
     a1: Double, a2: Double)
   extends Factor {
 
@@ -119,21 +119,21 @@ case class WeightedSumFactor(
     case 0 => updateHelper(
       w0_0, w0_1, w0s_0, w0s_1,
       message1, message2, message3,
-      variable1, variable2, variable3)
+      variable0, variable1, variable2)
     case 1 => updateHelper(
       w1_0, w1_1, w1s_0, w1s_1,
       message2, message3, message1,
-      variable2, variable3, variable1)
+      variable1, variable2, variable0)
     case 2 => updateHelper(
       w2_0, w2_1, w2s_0, w2s_1,
       message3, message2, message1,
-      variable3, variable2, variable1)
+      variable2, variable1, variable0)
   }
 
   override def sendMessage(index: Int): Unit = index match {
-    case 0 => variable1.set(variable1 * message1)
-    case 1 => variable2.set(variable2 * message2)
-    case 2 => variable3.set(variable3 * message3)
+    case 0 => variable0.set(variable0 * message1)
+    case 1 => variable1.set(variable1 * message2)
+    case 2 => variable2.set(variable2 * message3)
   }
 }
 

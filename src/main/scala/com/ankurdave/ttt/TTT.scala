@@ -2,78 +2,68 @@ package com.ankurdave.ttt
 
 import scala.collection.mutable
 
-import java.time.YearMonth
-
 case class PlayerId(name: String)
 
-object Date {
-  def range(start: Date, end: Date): Seq[Date] = {
-    val result = mutable.ArrayBuffer.empty[Date]
-    var cur = start
-    while (cur < end) {
-      result += cur
-      cur = cur.next()
-    }
-    result += end
-  }
+case class Game[Date](date: Date, winner: PlayerId, loser: PlayerId)
+
+/** Type class for values that can be incremented and decremented. */
+trait IncrementDecrement[A] {
+  def prev(a: A): A
+  def next(a: A): A
+  /** Inclusive range */
+  def to(start: A, end: A): Seq[A]
 }
 
-case class Date(ym: YearMonth) {
-  def prev(): Date = Date(ym.minusMonths(1))
-  def next(): Date = Date(ym.plusMonths(1))
-  def <(other: Date): Boolean = ym.isBefore(other.ym)
-}
+/** A container for a set of two-player game results. */
+class Games[Date : Ordering](games: Seq[Game[Date]]) {
+  private val byDate: Map[Date, Seq[Game[Date]]] = games.groupBy(_.date)
 
-case class SkillHistory(matches: Matches, skillVariables: Map[(Date, PlayerId), Gaussian])
+  val dates: Set[Date] = byDate.keySet
+  val minDate: Date = dates.min
+  val maxDate: Date = dates.max
 
-class Matches(data: Seq[(Date, PlayerId, PlayerId)]) {
+  /** Filters the games to those at a particular date. */
+  def forDate(date: Date): Seq[Game[Date]] = byDate(date)
 
-  def byDate(date: Date): Seq[(PlayerId, PlayerId)] =
-    for {
-      (d, w, l) <- data
-      if d == date
-    } yield (w, l)
-
+  /** Returns the start and end date for each player. */
   def playerStartEndDates: Map[PlayerId, (Date, Date)] = {
     val dates =
       for {
-        (d, w, l) <- data
+        Game(d, w, l) <- games
         p <- Seq(w, l)
       } yield (p, d)
     val datesByPlayer: Map[PlayerId, Seq[Date]] = dates.groupBy(_._1).mapValues(_.map(_._2))
-    datesByPlayer.mapValues(dates => (dates.minBy(_.ym), dates.maxBy(_.ym)))
+    datesByPlayer.mapValues(dates => (dates.min, dates.max))
   }
-
-  val dates = data.map(_._1).toSet
-
-  val minDate: Date = dates.minBy(_.ym)
-  val maxDate: Date = dates.maxBy(_.ym)
 }
 
-class TTT(
-    matches: Matches,
+/** The driver for computing TrueSkill Through Time over a set of two-player game results. */
+class TTT[Date : Ordering : IncrementDecrement](
+    games: Games[Date],
     mu: Double = 15,
     sigma: Double = 15 / 3.0,
     beta: Double = 15 / 6.0,
     tau: Double = 15 / 30.0,
     delta: Double = 0.01) {
 
-  def run(): SkillHistory = {
+  /** * Returns the computed skill estimate for each player at each date they were active. */
+  def run(): Map[(Date, PlayerId), Gaussian] = {
     System.err.println("Building factor graph")
     val (skillVariables, schedule) = buildFactorGraph()
     System.err.println("Running schedule")
     schedule.run()
     System.err.println("Done")
-    new SkillHistory(matches, skillVariables)
+    skillVariables
   }
 
+  /** Constructs a factor graph over player skills and a message passing schedule for inference. */
   private def buildFactorGraph(): (Map[(Date, PlayerId), Gaussian], Schedule) = {
     val skillVariables = mutable.HashMap.empty[(Date, PlayerId), Gaussian]
     val skillDynamicsFactors = mutable.HashMap.empty[(Date, PlayerId), Factor]
     val skillPriorFactors = mutable.HashMap.empty[(Date, PlayerId), Factor]
 
-    for ((p, (s, e)) <- matches.playerStartEndDates) {
-      for (d <- Date.range(s, e)) {
+    for ((p, (s, e)) <- games.playerStartEndDates) {
+      for (d <- implicitly[IncrementDecrement[Date]].to(s, e)) {
         skillVariables((d, p)) = Gaussian(0, 0)
         if (d == s) {
           // Prior over new players' skills
@@ -82,7 +72,7 @@ class TTT(
           // Dynamics factor between previous skill and current skill
           val dynamicsFactor = LikelihoodFactor(
             skillVariables((d, p)),
-            skillVariables((d.prev(), p)),
+            skillVariables((implicitly[IncrementDecrement[Date]].prev(d), p)),
             tau * tau)
           skillDynamicsFactors((d, p)) = dynamicsFactor
         }
@@ -92,15 +82,15 @@ class TTT(
     val priorSchedule = ScheduleSeq(skillPriorFactors.values.map(f => ScheduleStep(f, 0)).toSeq)
 
     val mainSchedule = buildSchedule(
-      matches.minDate, skillVariables.toMap, skillDynamicsFactors.toMap)
+      games.minDate, skillVariables.toMap, skillDynamicsFactors.toMap)
 
     val fullSchedule = ScheduleLoop(
-      ScheduleSeq(priorSchedule.steps ++ mainSchedule.steps), delta)
-    fullSchedule.profile = true
+      ScheduleSeq(priorSchedule.steps ++ mainSchedule.steps), delta, true)
 
     (skillVariables.toMap, fullSchedule)
   }
 
+  /** Recursively build the message passing schedule at and after a given date. */
   private def buildSchedule(
       date: Date,
       skillVariables: Map[(Date, PlayerId), Gaussian],
@@ -110,11 +100,11 @@ class TTT(
       (for (((d, p), v) <- skillDynamicsFactors; if d == date)
       yield ScheduleStep(v, 0)).toSeq)
 
-    // Construct the factor subgraph for each match that occurred during this timestep. The factor
-    // subgraph links the skill variables of the two players involved in the match.
+    // Construct the factor subgraph for each game that occurred during this timestep. The factor
+    // subgraph links the skill variables of the two players involved in the game.
     val dataSchedule = ScheduleLoop(ScheduleSeq(
       (for {
-        (winner, loser) <- matches.byDate(date)
+        Game(_, winner, loser) <- games.forDate(date)
 
         winnerSkillVariable = skillVariables((date, winner))
         winnerPerformanceVariable = Gaussian(0, 0)
@@ -130,21 +120,22 @@ class TTT(
         performanceDifferenceFactor = WeightedSumFactor(
           performanceDifferenceVariable, winnerPerformanceVariable, loserPerformanceVariable, 1, -1)
 
-        matchFactor = GreaterThanZeroFactor(performanceDifferenceVariable)
+        gameFactor = GreaterThanZeroFactor(performanceDifferenceVariable)
       } yield Seq(
         ScheduleStep(winnerPerformanceFactor, 0),
         ScheduleStep(loserPerformanceFactor, 0),
         ScheduleStep(performanceDifferenceFactor, 0),
-        ScheduleStep(matchFactor, 0),
+        ScheduleStep(gameFactor, 0),
         ScheduleStep(performanceDifferenceFactor, 1),
         ScheduleStep(performanceDifferenceFactor, 2),
         ScheduleStep(winnerPerformanceFactor, 1),
         ScheduleStep(loserPerformanceFactor, 1)
-      )).flatten), delta)
+      )).flatten), delta, false)
 
     val nextSchedule =
-      if (date < matches.maxDate) {
-        buildSchedule(date.next(), skillVariables, skillDynamicsFactors)
+      if (implicitly[Ordering[Date]].lt(date, games.maxDate)) {
+        buildSchedule(
+          implicitly[IncrementDecrement[Date]].next(date), skillVariables, skillDynamicsFactors)
       } else {
         ScheduleSeq(Seq.empty)
       }

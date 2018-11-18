@@ -1,20 +1,24 @@
 package com.ankurdave.ttt
 
+/** A schedule for message passing (expectation propagation) over a factor graph. */
 sealed trait Schedule {
+  /** Runs the schedule and returns the maximum resulting change of any variable. */
   def run(): Double
 }
 
+/** A single step of EP at the given factor in the given direction. */
 case class ScheduleStep(factor: Factor, index: Int) extends Schedule {
   override def run(): Double = factor.updateMessage(index)
 }
 
+/** A sequence of EP schedules. */
 case class ScheduleSeq(steps: Seq[Schedule]) extends Schedule {
   override def run(): Double =
     if (steps.size > 0) steps.map(_.run()).max else 0.0
 }
 
-case class ScheduleLoop(child: Schedule, delta: Double) extends Schedule {
-  var profile = false
+/** Iterated EP until convergence. Prints at each iteration if `profile` is true. */
+case class ScheduleLoop(child: Schedule, delta: Double, profile: Boolean) extends Schedule {
   override def run(): Double = {
     var i = 0
     var curDelta = child.run()
