@@ -23,7 +23,7 @@ class Games[Date : Ordering](games: Seq[Game[Date]]) {
   val maxDate: Date = dates.max
 
   /** Filters the games to those at a particular date. */
-  def forDate(date: Date): Seq[Game[Date]] = byDate(date)
+  def forDate(date: Date): Seq[Game[Date]] = byDate.getOrElse(date, Seq.empty)
 
   /** Returns the start and end date for each player. */
   def playerStartEndDates: Map[PlayerId, (Date, Date)] = {
