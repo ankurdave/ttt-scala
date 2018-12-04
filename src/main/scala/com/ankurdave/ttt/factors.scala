@@ -2,7 +2,6 @@ package com.ankurdave.ttt
 
 trait Factor {
   def updateMessage(index: Int): Double
-  def sendMessage(index: Int): Unit
 }
 
 case class PriorFactor(mu: Double, sigma2: Double, variable: Gaussian) extends Factor {
@@ -21,11 +20,6 @@ case class PriorFactor(mu: Double, sigma2: Double, variable: Gaussian) extends F
     message.set(newMessage)
 
     oldMarginal - newMarginal
-  }
-
-  override def sendMessage(index: Int): Unit = {
-    assert(index == 0)
-    variable.set(variable * message)
   }
 }
 
@@ -57,11 +51,6 @@ case class LikelihoodFactor(variable1: Gaussian, variable2: Gaussian, betaSquare
   override def updateMessage(index: Int): Double = index match {
     case 0 => updateHelper(message1, message2, variable1, variable2)
     case 1 => updateHelper(message2, message1, variable2, variable1)
-  }
-
-  override def sendMessage(index: Int): Unit = index match {
-    case 0 => variable1.set(variable1 * message1)
-    case 1 => variable2.set(variable2 * message2)
   }
 }
 
@@ -129,12 +118,6 @@ case class WeightedSumFactor(
       message3, message2, message1,
       variable2, variable1, variable0)
   }
-
-  override def sendMessage(index: Int): Unit = index match {
-    case 0 => variable0.set(variable0 * message1)
-    case 1 => variable1.set(variable1 * message2)
-    case 2 => variable2.set(variable2 * message3)
-  }
 }
 
 /** variable > 0 */
@@ -159,10 +142,5 @@ case class GreaterThanZeroFactor(variable: Gaussian) extends Factor {
     variable.set(newMarginal)
 
     newMarginal - oldMarginal
-  }
-
-  override def sendMessage(index: Int): Unit = {
-    assert(index == 0)
-    variable.set(variable * message)
   }
 }
