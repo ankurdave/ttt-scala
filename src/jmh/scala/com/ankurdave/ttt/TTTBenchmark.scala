@@ -31,6 +31,6 @@ class TTTBenchmark {
   @Benchmark
   @BenchmarkMode(Array(Mode.SingleShotTime))
   def buildAndRunSchedule(bh: Blackhole): Unit = {
-    bh.consume(new TTT(games, 3.5, 3.5 / 0.7, 3.5 / 0.7 * 0.37, 3.5 / 0.7 * 0.058).run())
+    bh.consume(new TTT(games, 3.5, 3.5 / 5.0, 3.5 / 5.0 * 0.37, 3.5 / 5.0 * 0.058).run())
   }
 }
