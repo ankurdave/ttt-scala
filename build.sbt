@@ -27,3 +27,6 @@ scalacOptions ++= Seq(
 scalacOptions in (Compile, console) := Seq.empty
 
 autoAPIMappings := true
+
+enablePlugins(JmhPlugin)
+
