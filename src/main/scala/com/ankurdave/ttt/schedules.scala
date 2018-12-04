@@ -13,8 +13,16 @@ case class ScheduleStep(factor: Factor, index: Int) extends Schedule {
 
 /** A sequence of EP schedules. */
 case class ScheduleSeq(steps: Seq[Schedule]) extends Schedule {
-  override def run(): Double =
-    if (steps.size > 0) steps.map(_.run()).max else 0.0
+  override def run(): Double = {
+    var max = 0.0
+    for (step <- steps) {
+      val delta = step.run()
+      if (delta > max) {
+        max = delta
+      }
+    }
+    max
+  }
 }
 
 /** Iterated EP until convergence. Prints at each iteration if `profile` is true. */
